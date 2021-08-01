@@ -26,12 +26,13 @@ def get_code_challenge(code_verify:str) -> str:
                              .digest()).decode('utf-8').rstrip('=')
 
 
-def get_tokens_request(url, code:str, code_verifier:str) -> dict:
+def get_tokens_request(url, grant_type:str, client_id:str, redirect_uri:str,
+                       code:str, code_verifier:str) -> dict:
     data = {
-        'grant_type': 'authorization_code',
+        'client_id': client_id,
+        'grant_type': grant_type,
         'code': code,
-        'redirect_uri': 'http://localhost:55145',
-        'client_id': 'hardware-native',
+        'redirect_uri': redirect_uri,
         'code_verifier': code_verifier
     }
 
@@ -132,7 +133,13 @@ def login(config_path):
 
     # Get token request
     LOG.print('Request to token url ({})', config.openid_client['token_url'])
-    token_res = get_tokens_request(config.openid_client['token_url'], code, code_verify)
+    token_res = get_tokens_request(config.openid_client['token_url'],
+                                   config.openid_client['grant_type'],
+                                   config.openid_client['client_id'],
+                                   get_redirect_uri(config.openid_client['redirect_port']),
+                                   code, 
+                                   code_verify)
+
     LOG.debug('Tokens: \n{}', json.dumps(token_res, indent=4))
 
     # Print response outputs
