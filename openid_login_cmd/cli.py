@@ -10,12 +10,12 @@ from urllib.parse import parse_qs, urlsplit
 
 import click
 import requests
-from clinlog import get_logger
+from clinlog import get_logger, Logger
 
 from .Config import Config
 
 AUTH_REDIRECT_URL = '{uri}?response_type={response_type}&client_id={client_id}&state={state}&redirect_uri={redirect_uri}&scope={scope}&code_challenge={code_challenge}&code_challenge_method=S256&nonce={nonce}'
-LOG = get_logger()
+LOG = None
 
 def get_rand_string() -> str:
     return ''.join(random.choice(string.ascii_lowercase + '1234567890') for i in range(48))
@@ -82,8 +82,8 @@ def browser_additional_params(browser_name):
 def get_redirect_uri(port, protocol='http'):
     return '{}://localhost:{}'.format(protocol, port)
 
-def create_logger():
-    logger = get_logger()
+def create_logger(log_level = Logger.INFO):
+    logger = get_logger(log_level)
     logger.info_tag = ''
     logger.confirm_tag = ''
 
@@ -93,8 +93,14 @@ def create_logger():
 
 @click.command()
 @click.option('--config', '-c', 'config_path', default='', help='Config file. Defaults to ~/.openid-cmd/config.yml')
-def login(config_path):
-    create_logger()
+@click.option('--verbose', '-v', is_flag=True)
+def login(config_path, verbose):
+    log_level = Logger.INFO
+    if verbose:
+        log_level = Logger.DEBUG
+
+
+    create_logger(log_level)
 
     # Load config
     if config_path:
@@ -111,7 +117,6 @@ def login(config_path):
     state = get_rand_string()
     code_verify = get_rand_string()
     code_challenge = get_code_challenge(code_verify)
-    AUTH_REDIRECT_URL = '{uri}?response_type={response_type}&client_id={client_id}&state={state}&redirect_uri={redirect_uri}&scope={scope}&code_challenge={code_challenge}&code_challenge_method=S256&nonce={nonce}'
     auth_url = AUTH_REDIRECT_URL.format(uri=config.openid_client['auth_redirect_url'],
                                         response_type=config.openid_client['response_type'],
                                         client_id=config.openid_client['client_id'],
@@ -137,7 +142,7 @@ def login(config_path):
                                    config.openid_client['grant_type'],
                                    config.openid_client['client_id'],
                                    get_redirect_uri(config.openid_client['redirect_port']),
-                                   code, 
+                                   code,
                                    code_verify)
 
     LOG.debug('Tokens: \n{}', json.dumps(token_res, indent=4))
@@ -150,7 +155,7 @@ def login(config_path):
             LOG.confirm('{}: {}', out_field, token_res[out_field], highlight=True)
         else:
             missing_outs.append(out_field)
-            
+
     for miss_out in missing_outs:
         LOG.warning("Output '{}' not found in token response", miss_out)
 
